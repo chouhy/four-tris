@@ -160,6 +160,8 @@ Global $InfiniteSwaps	= IniRead('settings.ini', 'SETTINGS', 'INFINITE_HOLD', Fal
 Global $RenderTextures	= IniRead('settings.ini', 'SETTINGS', 'RENDER_TEXTURES', False)	= 'True' ? True : False
 Global $DasCancel		= IniRead('settings.ini', 'SETTINGS', 'DAS_CANCELLATION', True)	= 'True' ? True : False
 Global $MirrorQueue		= IniRead('settings.ini', 'SETTINGS', 'MIRROR_QUEUE', True)		= 'True' ? True : False
+Global $RotationSystem	= StringUpper(IniRead('settings.ini', 'SETTINGS', 'ROTATION_SYSTEM', 'SRS'))
+If $RotationSystem <> 'SRS' And $RotationSystem <> 'SRS+' Then $RotationSystem = 'SRS'
 
 ;drag file holder
 Global $DROPFILE[2] = [False,'']
@@ -422,10 +424,11 @@ $PAINT[8][2] = BoundBox($AlignR + 50, $AlignT + 370, 15, 15)
 
 #EndRegion BUTTONS
 #Region SETTINGS TAB
-Global $SEPARATORS[4][2] = [['COLORS', 5], ['KEYBINDS', 195], ['GAMEPLAY', 490], ['SOUND', 770]]
-Global $SETTINGS[26][7]
+Global $SEPARATORS[4][2] = [['COLORS', 5], ['KEYBINDS', 195], ['GAMEPLAY', 490], ['SOUND', 860]]
+Global $SETTINGS[29][7]
 Global $SETTINGS_ACTIVE = False
-Global $SETTINGS_PANELSIZE = 900
+Global $SETTINGS_PANELSIZE = 1000
+Global $RotationDropdownOpen = False
 Local  $Y
 
 ;colors
@@ -469,6 +472,9 @@ $SETTINGS[16][2] = BoundBox($AlignC-70,  $Y+90, 130,19)
 $SETTINGS[24][2] = BoundBox($AlignC-100, $Y+125,200,35)
 $SETTINGS[25][2] = BoundBox($AlignC-100, $Y+170,200,35)
 $SETTINGS[17][2] = BoundBox($AlignC-70,  $Y+215,130,19)
+$SETTINGS[26][2] = BoundBox($AlignC-100, $Y+250,200,35)
+$SETTINGS[27][2] = BoundBox($AlignC-100, $Y+285,200,30)
+$SETTINGS[28][2] = BoundBox($AlignC-100, $Y+315,200,30)
 
 
 ;sound
@@ -504,6 +510,9 @@ $SETTINGS[16][3] = 'DAS CANCELLATION'
 $SETTINGS[24][3] = 'SOFTDROP SPEED (ms)'
 $SETTINGS[25][3] = 'SOFTDROP DELAY (ms)'
 $SETTINGS[17][3] = 'SHOW GHOST PIECE'
+$SETTINGS[26][3] = 'ROTATION SYSTEM v'
+$SETTINGS[27][3] = 'SRS'
+$SETTINGS[28][3] = 'SRS+'
 
 $SETTINGS[19][3] = 'VOLUME'
 
@@ -536,6 +545,9 @@ $SETTINGS[16][4] = $DasCancel
 $SETTINGS[24][4] = $SDS
 $SETTINGS[25][4] = $SDD
 $SETTINGS[17][4] = $GhostPiece
+$SETTINGS[26][4] = $RotationSystem
+$SETTINGS[27][4] = ''
+$SETTINGS[28][4] = ''
 
 $SETTINGS[19][4] = $VOLUME
 
@@ -567,6 +579,9 @@ $SETTINGS[16][5] = 'ToggleCheckbox(16, "DAS_CANCELLATION", $DasCancel)'
 $SETTINGS[24][5] = 'SetSlider(24, 0,  32, "SDS", $SDS)'
 $SETTINGS[25][5] = 'SetSlider(25, 0, 256, "SDD", $SDD)'
 $SETTINGS[17][5] = 'ToggleCheckbox(17, "GHOST_PIECE", $GhostPiece)'
+$SETTINGS[26][5] = 'ToggleRotationDropdown()'
+$SETTINGS[27][5] = 'SetRotationSystem("SRS")'
+$SETTINGS[28][5] = 'SetRotationSystem("SRS+")'
 
 $SETTINGS[19][5] = 'SetVolume(19)'
 
@@ -589,6 +604,11 @@ $SETTINGS[20][6] = 1
 $SETTINGS[21][6] = 1
 $SETTINGS[22][6] = 1
 $SETTINGS[23][6] = 1
+$SETTINGS[24][6] = 1
+$SETTINGS[25][6] = 1
+$SETTINGS[26][6] = 1
+$SETTINGS[27][6] = 1
+$SETTINGS[28][6] = 1
 
 #EndRegion
 #Region TESTING
@@ -1215,13 +1235,24 @@ Func Settings()
 		If Not IsArray($m) Then ContinueLoop
 
 		For $i = 0 To UBound($SETTINGS) - 1
-			$SETTINGS[$i][0] = Bounds($m, $SETTINGS[$i][2])
+			If ($i = 27 Or $i = 28) And Not $RotationDropdownOpen Then
+				$SETTINGS[$i][0] = False
+			Else
+				$SETTINGS[$i][0] = Bounds($m, $SETTINGS[$i][2])
+			EndIf
 
 			If $SETTINGS[$i][0] <> $SETTINGS[$i][1] Then
 				$SETTINGS[$i][1] = $SETTINGS[$i][0]
 				$CHG = True
 			EndIf
 		Next
+
+		If $msg = -8 And $RotationDropdownOpen Then
+			If Not $SETTINGS[26][0] And Not $SETTINGS[27][0] And Not $SETTINGS[28][0] Then
+				$RotationDropdownOpen = False
+				$CHG = True
+			EndIf
+		EndIf
 
 		For $i = 0 To UBound($SETTINGS) - 1
 			If $SETTINGS[$i][0] And $msg+$SETTINGS[$i][6] = -7 Then
@@ -1401,6 +1432,21 @@ EndFunc
 Func SetVolume($S)
 	SetSlider($S, 0, 100, 'VOLUME', $VOLUME)
 	SoundSetWaveVolume($VOLUME)
+EndFunc
+Func ToggleRotationDropdown()
+	$RotationDropdownOpen = Not $RotationDropdownOpen
+	$CHG = True
+EndFunc
+Func SetRotationSystem($System)
+	If Not $RotationDropdownOpen Then Return
+	If $System <> 'SRS' And $System <> 'SRS+' Then Return
+
+	$RotationSystem = $System
+	$SETTINGS[26][4] = $RotationSystem
+	$RotationDropdownOpen = False
+	$CHG = True
+
+	IniWrite('settings.ini', 'SETTINGS', 'ROTATION_SYSTEM', $RotationSystem)
 EndFunc
 
 
@@ -1860,7 +1906,12 @@ Func DrawSettings($DRW, $Render = True)
 	DrawSlider($DRW, 24, $SDS/32)
 	DrawSlider($DRW, 25, $SDD/256)
 	DrawCheckbox($DRW, 17)
+	DrawButton($DRW, 26)
 	DrawSlider($DRW, 19, $VOLUME/100)
+	If $RotationDropdownOpen Then
+		DrawButton($DRW, 27)
+		DrawButton($DRW, 28)
+	EndIf
 
 	For $i = 20 To 23
 		DrawButton($DRW, $i)
@@ -3513,17 +3564,39 @@ Func PieceKick(ByRef $Angle, ByRef $X, ByRef $Y, $Rotation)
 	If $Piece = 0 Then ;I piece
 		Switch $Rotation
 			Case 1 ;CCW
-				Local $Offset[4][4][2] = [ _
-				[[+2, 0],[-1, 0],[+2,-1],[-1,+2]], _
-				[[-1, 0],[+2, 0],[-1,-2],[+2,+1]], _
-				[[-2, 0],[+1, 0],[-2,+1],[+1,-2]], _
-				[[+1, 0],[-2, 0],[+1,+2],[-2,+1]]]
+				If $RotationSystem = 'SRS+' Then
+					Local $Offset[4][4][2] = [ _
+					[[-1, 0],[+2, 0],[-1,+2],[+2,-1]], _
+					[[-1, 0],[+2, 0],[+2,+1],[-1,-2]], _
+					[[+1, 0],[-2, 0],[+1,-2],[-2,+1]], _
+					[[-2, 0],[+1, 0],[-2,+1],[+1,+2]]]
+				Else
+					Local $Offset[4][4][2] = [ _
+					[[+2, 0],[-1, 0],[+2,-1],[-1,+2]], _
+					[[-1, 0],[+2, 0],[-1,-2],[+2,+1]], _
+					[[-2, 0],[+1, 0],[-2,+1],[+1,-2]], _
+					[[+1, 0],[-2, 0],[+1,+2],[-2,+1]]]
+				EndIf
+			Case 2 ;180
+				Local $Offset[4][5][2] = [ _
+				[[ 0,+1],[-1,+1],[+1,+1],[-1, 0],[+1, 0]], _
+				[[+1, 0],[+1,-2],[+1,-1],[ 0,-2],[ 0,-1]], _
+				[[ 0,-1],[+1,-1],[-1,-1],[+1, 0],[-1, 0]], _
+				[[-1, 0],[-1,+2],[-1,-1],[ 0,-2],[ 0,-1]]]
 			Case 3 ;CW
-				Local $Offset[4][4][2] = [ _
-				[[+1, 0],[-2, 0],[+1,+2],[-2,-1]], _
-				[[+2, 0],[-1, 0],[+2,-1],[-1,+2]], _
-				[[-1, 0],[+2, 0],[-1,-2],[+2,+1]], _
-				[[-2, 0],[+1, 0],[-2,+1],[+1,-2]]]
+				If $RotationSystem = 'SRS+' Then
+					Local $Offset[4][4][2] = [ _
+					[[+1, 0],[-2, 0],[+1,+2],[-2,-1]], _
+					[[+2, 0],[-1, 0],[+2,-1],[-1,+2]], _
+					[[-1, 0],[+2, 0],[-1,-2],[+2,+1]], _
+					[[+1, 0],[-2, 0],[-2,+1],[+1,-2]]]
+				Else
+					Local $Offset[4][4][2] = [ _
+					[[+1, 0],[-2, 0],[+1,+2],[-2,-1]], _
+					[[+2, 0],[-1, 0],[+2,-1],[-1,+2]], _
+					[[-1, 0],[+2, 0],[-1,-2],[+2,+1]], _
+					[[-2, 0],[+1, 0],[-2,+1],[+1,-2]]]
+				EndIf
 			Case Else
 				Return False
 		EndSwitch
